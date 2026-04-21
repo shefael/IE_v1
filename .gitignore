@@ -1,0 +1,12 @@
+build/
+*.exe
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+.vscode/
+CMakeCache.txt 
+CMakeFiles/
+compile_commands.json
+*.gguf
