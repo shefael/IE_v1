@@ -25,7 +25,9 @@ endif()
 set(PROJECT_SOURCES
     src/main.c
     src/editor/gap_buffer.c
+    src/editor/undo_redo.c
     src/ui/main_window.c
+    src/ui/scintilla_wrapper.c
     src/llm/llm_interface.c
     src/nlp/hunspell_wrap.c
     src/rules/rule_engine.c
@@ -43,17 +45,24 @@ target_include_directories(cjson PUBLIC external/cJSON)
 
 # --- Scintilla ---
 set(SCINTILLA_SOURCES
+    # --- Fichiers src/ (base) ---
     external/scintilla/src/AutoComplete.cxx
     external/scintilla/src/CallTip.cxx
+    external/scintilla/src/CaseConvert.cxx        
+    external/scintilla/src/CaseFolder.cxx         
     external/scintilla/src/CellBuffer.cxx
     external/scintilla/src/ChangeHistory.cxx
+    external/scintilla/src/CharacterCategoryMap.cxx 
+    external/scintilla/src/CharacterType.cxx        
     external/scintilla/src/CharClassify.cxx
     external/scintilla/src/ContractionState.cxx
+    external/scintilla/src/DBCS.cxx               
     external/scintilla/src/Decoration.cxx
     external/scintilla/src/Document.cxx
     external/scintilla/src/EditModel.cxx
     external/scintilla/src/EditView.cxx
     external/scintilla/src/Editor.cxx
+    external/scintilla/src/Geometry.cxx           
     external/scintilla/src/Indicator.cxx
     external/scintilla/src/KeyMap.cxx
     external/scintilla/src/LineMarker.cxx
@@ -62,14 +71,21 @@ set(SCINTILLA_SOURCES
     external/scintilla/src/PositionCache.cxx
     external/scintilla/src/RESearch.cxx
     external/scintilla/src/RunStyles.cxx
-    external/scintilla/src/ScintillaBase.cxx
+    external/scintilla/src/ScintillaBase.cxx      
     external/scintilla/src/Selection.cxx
     external/scintilla/src/Style.cxx
     external/scintilla/src/UndoHistory.cxx
     external/scintilla/src/UniConversion.cxx
+    external/scintilla/src/UniqueString.cxx       
     external/scintilla/src/ViewStyle.cxx
     external/scintilla/src/XPM.cxx
+
+    # --- Fichiers win32/ (plateforme Windows) ---
+    external/scintilla/win32/HanjaDic.cxx         
     external/scintilla/win32/PlatWin.cxx
+    external/scintilla/win32/ListBox.cxx          
+    external/scintilla/win32/SurfaceGDI.cxx        
+    external/scintilla/win32/SurfaceD2D.cxx        
     external/scintilla/win32/ScintillaWin.cxx
 )
 
@@ -149,7 +165,7 @@ target_link_libraries(IntelliEditor
 # Ajout des flags spécifiques Windows
 if(WIN32)
     set_target_properties(IntelliEditor PROPERTIES
-        WIN32_EXECUTABLE FALSE
+        WIN32_EXECUTABLE TRUE
     )
     target_link_libraries(IntelliEditor
         ws2_32      # Winsock2 pour llama.cpp
