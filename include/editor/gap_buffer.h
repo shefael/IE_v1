@@ -1,35 +1,63 @@
 #ifndef EDITOR_GAP_BUFFER_H
 #define EDITOR_GAP_BUFFER_H
 
-#include <stddef.h>   /* pour size_t */
+#include <stddef.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/* Structure opaque représentant le gap buffer */
+/* Structure opaque — la définition interne est dans gap_buffer.c */
 typedef struct GapBuffer GapBuffer;
 
-/* Crée un nouveau gap buffer avec une capacité initiale */
-GapBuffer* gb_create(size_t initial_capacity);
+/*
+ * Crée un nouveau gap buffer avec une capacité initiale donnée.
+ * Retourne NULL en cas d'échec d'allocation.
+ */
+GapBuffer* gb_create(size_t capacite_initiale);
 
-/* Détruit un gap buffer et libère la mémoire */
+/*
+ * Libère toute la mémoire associée au gap buffer.
+ */
 void gb_destroy(GapBuffer* gb);
 
-/* Insère du texte à la position courante du curseur */
-int gb_insert(GapBuffer* gb, const char* text, size_t len);
+/*
+ * Insère 'len' octets de 'texte' à la position courante du curseur.
+ * Retourne 0 en cas de succès, -1 en cas d'erreur mémoire.
+ */
+int gb_insert(GapBuffer* gb, const char* texte, size_t len);
 
-/* Supprime un nombre de caractères avant ou après le curseur */
-int gb_delete(GapBuffer* gb, size_t count, int forward);
+/*
+ * Supprime 'len' octets à gauche du curseur (équivalent Backspace).
+ * Ne fait rien si le curseur est au début.
+ */
+void gb_delete(GapBuffer* gb, size_t len);
 
-/* Récupère le contenu complet sous forme de chaîne UTF-8 */
-const char* gb_get_text(const GapBuffer* gb);
+/*
+ * Déplace le curseur à la position absolue 'pos' (en octets depuis le début).
+ * Si pos dépasse la longueur, le curseur est placé à la fin.
+ */
+void gb_move_cursor(GapBuffer* gb, size_t pos);
 
-/* Obtient la longueur totale du texte (sans le gap) */
-size_t gb_length(const GapBuffer* gb);
+/*
+ * Retourne le curseur courant (position absolue en octets).
+ */
+size_t gb_get_cursor(const GapBuffer* gb);
 
-#ifdef __cplusplus
-}
-#endif
+/*
+ * Alloue et retourne une copie plate du texte complet (sans le gap).
+ * L'appelant doit libérer la mémoire avec free().
+ * Retourne NULL en cas d'erreur.
+ */
+char* gb_get_text(const GapBuffer* gb);
+
+/*
+ * Retourne la longueur totale du texte en octets (sans le gap).
+ */
+size_t gb_get_length(const GapBuffer* gb);
+
+/*
+ * Remplace la plage [start, start+len[ par 'remplacement' (repl_len octets).
+ * Opération atomique pour l'historique undo/redo.
+ * Retourne 0 en cas de succès, -1 en cas d'erreur.
+ */
+int gb_replace_range(GapBuffer* gb, size_t start, size_t len,
+                     const char* remplacement, size_t repl_len);
 
 #endif /* EDITOR_GAP_BUFFER_H */
