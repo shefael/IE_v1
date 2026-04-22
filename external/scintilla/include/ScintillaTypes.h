@@ -26,6 +26,7 @@ enum class WhiteSpace {
 enum class TabDrawMode {
 	LongArrow = 0,
 	StrikeOut = 1,
+	ControlChar = 2,
 };
 
 enum class EndOfLine {
@@ -299,6 +300,12 @@ enum class ChangeHistoryOption {
 	Indicators = 4,
 };
 
+enum class UndoSelectionHistoryOption {
+	Disabled = 0,
+	Enabled = 1,
+	Scroll = 2,
+};
+
 enum class FoldLevel {
 	None = 0x0,
 	Base = 0x400,
@@ -510,6 +517,7 @@ enum class Technology {
 	DirectWrite = 1,
 	DirectWriteRetain = 2,
 	DirectWriteDC = 3,
+	DirectWrite1 = 4,
 };
 
 enum class LineEndType {

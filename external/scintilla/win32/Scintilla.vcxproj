@@ -86,7 +86,7 @@
       <WarningLevel>Level4</WarningLevel>
       <PreprocessorDefinitions>_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\include;..\src;</AdditionalIncludeDirectories>
-      <BrowseInformation>true</BrowseInformation>
+      <BrowseInformation>false</BrowseInformation>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -169,6 +169,9 @@
     <ClCompile Include="..\src\*.cxx" />
     <ClCompile Include="..\win32\HanjaDic.cxx" />
     <ClCompile Include="..\win32\PlatWin.cxx" />
+    <ClCompile Include="..\win32\ListBox.cxx" />
+    <ClCompile Include="..\win32\SurfaceGDI.cxx" />
+    <ClCompile Include="..\win32\SurfaceD2D.cxx" />
     <ClCompile Include="..\win32\ScintillaWin.cxx" />
     <ClCompile Include="..\win32\ScintillaDLL.cxx" />
   </ItemGroup>
