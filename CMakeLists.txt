@@ -35,6 +35,12 @@ set(LLAMA_LIBS
 )
 
 # -------------------------------------------------------------------
+# Hunspell — bibliothèque système MinGW
+# -------------------------------------------------------------------
+set(HUNSPELL_INCLUDE_DIR "/mingw64/include/hunspell")
+set(HUNSPELL_LIB         "C:/msys64/mingw64/lib/libhunspell-1.7.a")
+
+# -------------------------------------------------------------------
 # 3. Liste des fichiers sources du projet
 # -------------------------------------------------------------------
 set(PROJECT_SOURCES
@@ -163,6 +169,7 @@ target_link_libraries(IntelliEditor
     ${LLAMA_LIBS}
     OpenMP::OpenMP_C
     OpenMP::OpenMP_CXX
+    ${HUNSPELL_LIB}
     ws2_32
     user32
     gdi32
