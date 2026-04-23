@@ -1,0 +1,51 @@
+{
+  "meta": {
+    "document_type": "Test Phase 1",
+    "version": "1.0",
+    "author": "IntelliEditor Test",
+    "description": "Fichier de règles minimal pour valider le parser"
+  },
+  "rules": [
+    {
+      "id": "R001",
+      "category": "structure",
+      "severity": "error",
+      "description": "Le document doit contenir une section Introduction",
+      "check_type": "section_exists",
+      "parameter": "Introduction"
+    },
+    {
+      "id": "R002",
+      "category": "structure",
+      "severity": "error",
+      "description": "Le document doit contenir une section Conclusion",
+      "check_type": "section_exists",
+      "parameter": "Conclusion"
+    },
+    {
+      "id": "R003",
+      "category": "style",
+      "severity": "warning",
+      "description": "Éviter la première personne du singulier",
+      "check_type": "regex_forbidden",
+      "parameter": "\\bje\\b|\\bj'|\\bmon\\b|\\bma\\b",
+      "flags": "case_insensitive"
+    },
+    {
+      "id": "R004",
+      "category": "longueur",
+      "severity": "warning",
+      "description": "L'introduction doit contenir au moins 300 mots",
+      "check_type": "word_count_min",
+      "parameter": { "section": "Introduction", "min_words": 300 }
+    },
+    {
+      "id": "R005",
+      "category": "format",
+      "severity": "warning",
+      "description": "Les titres H1 doivent être en majuscules",
+      "check_type": "heading_format",
+      "parameter": { "level": 1, "case": "uppercase" }
+    }
+  ]
+}

@@ -47,6 +47,7 @@ set(PROJECT_SOURCES
     src/llm/llm_thread.c
     src/nlp/hunspell_wrap.c
     src/rules/rule_engine.c
+    src/rules/rule_parser.c
     src/utils/encoding.c
     src/utils/config.c
 )
