@@ -11,16 +11,31 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Détection spécifique à MinGW (utilisé sur Windows)
+
 if(MINGW)
     add_compile_options(-Wall -Wextra -Wpedantic)
-    set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
+    set(CMAKE_C_FLAGS_RELEASE   "-O2 -DNDEBUG")
     set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
-    set(CMAKE_C_FLAGS_DEBUG "-g -O0")
-    set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+    set(CMAKE_C_FLAGS_DEBUG     "-g -O0")
+    set(CMAKE_CXX_FLAGS_DEBUG   "-g -O0")
 endif()
 
 # -------------------------------------------------------------------
-# 2. Liste des fichiers sources du projet
+# 2. Chemins des bibliothèques llama.cpp pré-compilées
+# -------------------------------------------------------------------
+set(LLAMA_BUILD_DIR ${CMAKE_SOURCE_DIR}/external/llama.cpp/build)
+
+set(LLAMA_LIBS
+    ${LLAMA_BUILD_DIR}/src/libllama.a
+    ${LLAMA_BUILD_DIR}/common/libllama-common.a
+    ${LLAMA_BUILD_DIR}/common/libllama-common-base.a
+    ${LLAMA_BUILD_DIR}/ggml/src/ggml.a
+    ${LLAMA_BUILD_DIR}/ggml/src/ggml-base.a
+    ${LLAMA_BUILD_DIR}/ggml/src/ggml-cpu.a
+)
+
+# -------------------------------------------------------------------
+# 3. Liste des fichiers sources du projet
 # -------------------------------------------------------------------
 set(PROJECT_SOURCES
     src/main.c
@@ -29,6 +44,7 @@ set(PROJECT_SOURCES
     src/ui/main_window.c
     src/ui/scintilla_wrapper.c
     src/llm/llm_interface.c
+    src/llm/llm_thread.c
     src/nlp/hunspell_wrap.c
     src/rules/rule_engine.c
     src/utils/encoding.c
@@ -96,46 +112,28 @@ target_include_directories(scintilla PUBLIC
     external/scintilla/win32
 )
 target_compile_definitions(scintilla PRIVATE
-    UNICODE
-    _UNICODE
-    SCI_LEXER
-    _CRT_SECURE_NO_WARNINGS
+    UNICODE _UNICODE SCI_LEXER _CRT_SECURE_NO_WARNINGS
 )
-
-# 🔧 Fix UINT8_MAX / uint8_t MinGW
 target_compile_options(scintilla PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-include cstdint>
     $<$<CXX_COMPILER_ID:Clang>:-include cstdint>
 )
-
 if(MINGW)
     target_compile_options(scintilla PRIVATE
-        -Wno-unused-parameter
-        -Wno-pedantic
+        -Wno-unused-parameter -Wno-pedantic
     )
 endif()
-
 set_target_properties(scintilla PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
 )
 
-# --- llama.cpp ---
-option(LLAMA_BUILD_EXAMPLES OFF)
-option(LLAMA_BUILD_TESTS OFF)
-option(BUILD_SHARED_LIBS OFF)
-option(LLAMA_CURL OFF)
-set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
-
-add_subdirectory(external/llama.cpp)
-
 # -------------------------------------------------------------------
-# 5. Création et configuration de l'exécutable
+# 5. Création de l'exécutable
 # -------------------------------------------------------------------
 add_executable(IntelliEditor ${PROJECT_SOURCES})
 
-# Inclure les headers de ton projet
 target_include_directories(IntelliEditor PRIVATE
     include
     src
@@ -146,44 +144,33 @@ target_include_directories(IntelliEditor PRIVATE
     src/rules
     src/utils
     external/cJSON
+    external/scintilla/include
     external/llama.cpp
+    external/llama.cpp/include
+    external/llama.cpp/common
+    external/llama.cpp/ggml/include
 )
 
-# Ajout des répertoires pour les headers externes si besoin
-target_include_directories(IntelliEditor PRIVATE external/scintilla/include)
-
 # -------------------------------------------------------------------
-# 6. Linkage des bibliothèques
+# 6. Linkage
 # -------------------------------------------------------------------
+# --- Ajoute ceci près du début ---
+find_package(OpenMP REQUIRED)
 target_link_libraries(IntelliEditor
     cjson
     scintilla
-    llama
-    ggml
+    ${LLAMA_LIBS}
+    OpenMP::OpenMP_C
+    OpenMP::OpenMP_CXX
+    ws2_32
+    user32
+    gdi32
+    comctl32
+    imm32
+    ole32
+    uuid
 )
 
-# Ajout des flags spécifiques Windows
-if(WIN32)
-    set_target_properties(IntelliEditor PROPERTIES
-        WIN32_EXECUTABLE TRUE
-    )
-    target_link_libraries(IntelliEditor
-        ws2_32      # Winsock2 pour llama.cpp
-        user32      # Interface utilisateur Windows
-        gdi32       # Graphiques
-        comctl32    # Contrôles communs
-        imm32       # Gestion des entrées IME
-    )
-endif()
-
-# -------------------------------------------------------------------
-# 7. Copie des DLLs/objets (optionnel)
-# -------------------------------------------------------------------
-if(MINGW AND WIN32)
-    add_custom_command(TARGET IntelliEditor POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:llama>" "$<TARGET_FILE_DIR:IntelliEditor>"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<TARGET_FILE:ggml>" "$<TARGET_FILE_DIR:IntelliEditor>"
-    )
-endif()
+set_target_properties(IntelliEditor PROPERTIES
+    WIN32_EXECUTABLE TRUE
+)
