@@ -52,6 +52,8 @@ set(PROJECT_SOURCES
     src/llm/llm_interface.c
     src/llm/llm_thread.c
     src/nlp/hunspell_wrap.c
+    src/nlp/tokenizer.c
+    src/nlp/nlp_engine.c
     src/rules/rule_engine.c
     src/rules/rule_parser.c
     src/utils/encoding.c
@@ -163,6 +165,10 @@ target_include_directories(IntelliEditor PRIVATE
 # -------------------------------------------------------------------
 # --- Ajoute ceci près du début ---
 find_package(OpenMP REQUIRED)
+target_link_options(IntelliEditor PRIVATE
+    -static-libgcc
+    -static-libstdc++
+)
 target_link_libraries(IntelliEditor
     cjson
     scintilla
