@@ -64,7 +64,8 @@ set(HUNSPELL_LIB         "C:/msys64/mingw64/lib/libhunspell-1.7.a")
 set(PROJECT_SOURCES
     src/main.c
     src/editor/gap_buffer.c
-    src/editor/undo_redo.c
+    src/editor/undo_redo.
+    src/editor/exporter.c
     src/ui/main_window.c
     src/ui/scintilla_wrapper.c
     src/llm/llm_interface.c
