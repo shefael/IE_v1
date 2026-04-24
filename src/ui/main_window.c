@@ -7,6 +7,8 @@
 #include "ui/scintilla_wrapper.h"
 #include "utils/config.h"
 #include "utils/encoding.h"
+#include "nlp/hunspell_wrap.h"
+#include "nlp/nlp_engine.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -223,6 +225,52 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
                 return -1; /* Annule la création de la fenêtre */
             }
 
+            /* Initialisation Hunspell + moteur NLP
+             * On construit le chemin absolu depuis le répertoire de l'exe
+             * pour que ça fonctionne quel que soit le répertoire courant. */
+            {
+                char chemin_aff[MAX_PATH];
+                char chemin_dic[MAX_PATH];
+
+                /* Récupère le chemin complet de l'exécutable */
+                wchar_t chemin_exe_w[MAX_PATH];
+                GetModuleFileNameW(NULL, chemin_exe_w, MAX_PATH);
+
+                /* Convertit en UTF-8 */
+                char chemin_exe[MAX_PATH];
+                WideCharToMultiByte(CP_UTF8, 0, chemin_exe_w, -1,
+                                    chemin_exe, MAX_PATH, NULL, NULL);
+
+                /* Remonte au répertoire de l'exe (supprime le nom du .exe) */
+                char *dernier_sep = strrchr(chemin_exe, '\\');
+                if (!dernier_sep) dernier_sep = strrchr(chemin_exe, '/');
+                if (dernier_sep) *(dernier_sep + 1) = '\0';
+
+                /* Construit les chemins vers les dictionnaires.
+                 * Les dictionnaires sont copiés à côté de l'exe au build,
+                 * OU on pointe vers la racine du projet via le chemin exe. */
+                snprintf(chemin_aff, MAX_PATH, "%sdata\\hunspell\\fr.aff",
+                         chemin_exe);
+                snprintf(chemin_dic, MAX_PATH, "%sdata\\hunspell\\fr.dic",
+                         chemin_exe);
+
+                /* Debug : affiche les chemins tentés dans stderr */
+                fprintf(stderr, "[init] AFF : %s\n", chemin_aff);
+                fprintf(stderr, "[init] DIC : %s\n", chemin_dic);
+
+                if (!spell_init(chemin_aff, chemin_dic)) {
+                    MessageBoxW(hwnd,
+                        L"Dictionnaire français introuvable.\n"
+                        L"La correction orthographique sera désactivée.\n\n"
+                        L"Placez fr.aff et fr.dic dans :\n"
+                        L"<dossier exe>\\data\\hunspell\\",
+                        L"Avertissement",
+                        MB_ICONWARNING | MB_OK);
+                } else {
+                    nlp_init();
+                }
+            }
+
             /* Timers */
             SetTimer(hwnd, TIMER_STATUT_ID, 300,  NULL);
             SetTimer(hwnd, TIMER_ORTHO_ID,  500,  NULL);
@@ -246,11 +294,41 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
             traiter_commande(hwnd, LOWORD(wParam));
             return 0;
 
-        case WM_TIMER:
-            /* Les timers seront exploités dans les phases suivantes
-             * (orthographe, règles, barre d'état).
-             * Pour l'instant on les absorbe silencieusement. */
+        
+        
+        
+        case WM_TIMER: {
+            if (wParam == TIMER_ORTHO_ID) {
+                /*
+                 * Timer orthographe (500 ms) :
+                 * Récupère le texte de Scintilla, lance la vérification
+                 * Hunspell, efface les anciens soulignements et applique
+                 * les nouveaux.
+                 */
+                char *texte = scintilla_get_texte(g_hwnd_scintilla);
+                if (texte) {
+                    int nb_erreurs = 0;
+                    ErreurOrtho *erreurs = nlp_verifier_ortho(texte, &nb_erreurs);
+
+                    /* Effacer tous les soulignements orthographiques */
+                    scintilla_effacer_ortho(g_hwnd_scintilla);
+
+                    /* Appliquer les nouveaux soulignements */
+                    for (int i = 0; i < nb_erreurs; i++) {
+                        scintilla_marquer_ortho(g_hwnd_scintilla,
+                                                erreurs[i].debut,
+                                                erreurs[i].longueur);
+                    }
+
+                    nlp_liberer_erreurs(erreurs, nb_erreurs);
+                    free(texte);
+                }
+            }
+            /* TIMER_REGLES_ID et TIMER_STATUT_ID seront branchés
+             * dans les étapes suivantes de la Phase 2. */
             return 0;
+        }     
+             
 
         case WM_NOTIFY: {
             /* Notifications Scintilla (SCN_*) */
@@ -270,6 +348,8 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
             KillTimer(hwnd, TIMER_STATUT_ID);
             KillTimer(hwnd, TIMER_ORTHO_ID);
             KillTimer(hwnd, TIMER_REGLES_ID);
+            nlp_shutdown();
+            spell_shutdown();
             PostQuitMessage(0);
             return 0;
 

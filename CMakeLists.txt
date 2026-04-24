@@ -4,25 +4,28 @@ project(IntelliEditor LANGUAGES C CXX)
 # -------------------------------------------------------------------
 # 1. Configuration du compilateur et des flags C/C++
 # -------------------------------------------------------------------
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Détection spécifique à MinGW (utilisé sur Windows)
-
+# On force explicitement l'architecture 64 bits sur MinGW
 if(MINGW)
+    add_compile_options(-m64)
+    add_link_options(-m64)
     add_compile_options(-Wall -Wextra -Wpedantic)
-    set(CMAKE_C_FLAGS_RELEASE   "-O2 -DNDEBUG")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
-    set(CMAKE_C_FLAGS_DEBUG     "-g -O0")
-    set(CMAKE_CXX_FLAGS_DEBUG   "-g -O0")
+    set(CMAKE_C_FLAGS_RELEASE   "-O2 -DNDEBUG -m64")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG -m64")
+    set(CMAKE_C_FLAGS_DEBUG     "-g -O0 -m64")
+    set(CMAKE_CXX_FLAGS_DEBUG   "-g -O0 -m64")
 endif()
 
 # -------------------------------------------------------------------
 # 2. Chemins des bibliothèques llama.cpp pré-compilées
 # -------------------------------------------------------------------
+
 set(LLAMA_BUILD_DIR ${CMAKE_SOURCE_DIR}/external/llama.cpp/build)
 
 set(LLAMA_LIBS
@@ -34,15 +37,30 @@ set(LLAMA_LIBS
     ${LLAMA_BUILD_DIR}/ggml/src/ggml-cpu.a
 )
 
-# -------------------------------------------------------------------
-# Hunspell — bibliothèque système MinGW
-# -------------------------------------------------------------------
-set(HUNSPELL_INCLUDE_DIR "/mingw64/include/hunspell")
-set(HUNSPELL_LIB         "C:/msys64/mingw64/lib/libhunspell-1.7.a")
+# ===================================================================
+# = VÉRIFICATION CRUCIALE : architecture de llama.cpp =
+# = => Doit être compilé pour 64 bits avec la même toolchain MinGW64
+# ===================================================================
+
 
 # -------------------------------------------------------------------
-# 3. Liste des fichiers sources du projet
+# 3. Hunspell — bibliothèque MinGW
 # -------------------------------------------------------------------
+
+set(HUNSPELL_INCLUDE_DIR "C:/msys64/mingw64/include/hunspell")
+set(HUNSPELL_LIB         "C:/msys64/mingw64/lib/libhunspell-1.7.a")
+
+# ===================================================================
+# = VÉRIFICATION CRUCIALE : Hunspell =
+# = => S'assurer que libhunspell-1.7.a est bien 64 bits
+# =    (file /mingw64/lib/libhunspell-1.7.a ou objdump -f)
+# ===================================================================
+
+
+# -------------------------------------------------------------------
+# 4. Liste des fichiers sources du projet
+# -------------------------------------------------------------------
+
 set(PROJECT_SOURCES
     src/main.c
     src/editor/gap_buffer.c
@@ -60,13 +78,16 @@ set(PROJECT_SOURCES
     src/utils/config.c
 )
 
+
 # -------------------------------------------------------------------
-# 4. Bibliothèques externes
+# 5. Bibliothèques externes
 # -------------------------------------------------------------------
+
 
 # --- cJSON ---
 add_library(cjson STATIC external/cJSON/cJSON.c)
 target_include_directories(cjson PUBLIC external/cJSON)
+
 
 # --- Scintilla ---
 set(SCINTILLA_SOURCES
@@ -129,7 +150,9 @@ target_compile_options(scintilla PRIVATE
 )
 if(MINGW)
     target_compile_options(scintilla PRIVATE
-        -Wno-unused-parameter -Wno-pedantic
+        -m64
+        -Wno-unused-parameter
+        -Wno-pedantic
     )
 endif()
 set_target_properties(scintilla PROPERTIES
@@ -138,9 +161,11 @@ set_target_properties(scintilla PROPERTIES
     CXX_EXTENSIONS OFF
 )
 
+
 # -------------------------------------------------------------------
-# 5. Création de l'exécutable
+# 6. Création de l'exécutable
 # -------------------------------------------------------------------
+
 add_executable(IntelliEditor ${PROJECT_SOURCES})
 
 target_include_directories(IntelliEditor PRIVATE
@@ -160,16 +185,24 @@ target_include_directories(IntelliEditor PRIVATE
     external/llama.cpp/ggml/include
 )
 
+
 # -------------------------------------------------------------------
-# 6. Linkage
+# 7. Linkage (version robuste 64 bits)
 # -------------------------------------------------------------------
-# --- Ajoute ceci près du début ---
+
+# Statique GCC/stdlibc++ pour éviter les DLL runtime
+if(MINGW)
+    target_link_options(IntelliEditor PRIVATE
+        -static-libgcc
+        -static-libstdc++
+        -m64
+    )
+endif()
+
+# OpenMP (utilise les libs MinGW OpenMP, mais on privilégie le statique)
 find_package(OpenMP REQUIRED)
-target_link_options(IntelliEditor PRIVATE
-    -static-libgcc
-    -static-libstdc++
-)
-target_link_libraries(IntelliEditor
+
+target_link_libraries(IntelliEditor PRIVATE
     cjson
     scintilla
     ${LLAMA_LIBS}
@@ -187,4 +220,25 @@ target_link_libraries(IntelliEditor
 
 set_target_properties(IntelliEditor PROPERTIES
     WIN32_EXECUTABLE TRUE
+)
+
+# Astuce pour vérifier l'architecture de l'exécutable
+if(MINGW)
+    add_custom_target(verify_arch
+        COMMAND objdump -f IntelliEditor.exe
+        COMMENT "Architecture de l'exécutable (vérifier 64 bits)"
+        BYPRODUCTS IntelliEditor.exe
+    )
+endif()
+# Copie des dictionnaires Hunspell à côté de l'exe après le build
+add_custom_command(TARGET IntelliEditor POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "$<TARGET_FILE_DIR:IntelliEditor>/data/hunspell"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/data/hunspell/fr.aff"
+        "$<TARGET_FILE_DIR:IntelliEditor>/data/hunspell/fr.aff"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/data/hunspell/fr.dic"
+        "$<TARGET_FILE_DIR:IntelliEditor>/data/hunspell/fr.dic"
+    COMMENT "Copie des dictionnaires Hunspell dans le dossier build"
 )
