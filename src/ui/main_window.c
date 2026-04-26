@@ -9,6 +9,8 @@
 #include "utils/encoding.h"
 #include "nlp/hunspell_wrap.h"
 #include "nlp/nlp_engine.h"
+#include "ui/toolbar.h"
+#include "editor/formatter.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +46,10 @@
  * ----------------------------------------------------------------------- */
 HWND g_hwnd_principale = NULL;
 HWND g_hwnd_scintilla  = NULL;
+HWND g_hwnd_toolbar    = NULL;
+
+/* Table des styles globale (partagée entre formatter et exporter) */
+static TableStyles *g_table_styles = NULL;
 
 /* Largeur réservée pour le panneau de règles (droite) */
 #define LARGEUR_PANNEAU_REGLES 250
@@ -202,6 +208,101 @@ static void traiter_commande(HWND hwnd, WORD id_commande) {
 
         /* Les autres commandes (Ouvrir, Enregistrer, Règles, etc.)
          * seront branchées dans les phases suivantes */
+        case ID_TB_GRAS:
+            /* Application du style gras sur la sélection Scintilla.
+             * Pour l'instant on notifie via la barre de statut (Phase 2).
+             * Le style est stocké dans g_table_styles pour l'export RTF. */
+            if (g_table_styles) {
+                /* Récupère la sélection courante dans Scintilla */
+                LRESULT debut_sel = SendMessage(g_hwnd_scintilla,
+                                                2143, 0, 0); /* SCI_GETSELECTIONSTART */
+                LRESULT fin_sel   = SendMessage(g_hwnd_scintilla,
+                                                2144, 0, 0); /* SCI_GETSELECTIONEND */
+                if (fin_sel > debut_sel) {
+                    formatter_appliquer(g_table_styles,
+                                        (size_t)debut_sel,
+                                        (size_t)(fin_sel - debut_sel),
+                                        STYLE_GRAS);
+                }
+            }
+            break;
+
+        case ID_TB_ITALIQUE:
+            if (g_table_styles) {
+                LRESULT debut_sel = SendMessage(g_hwnd_scintilla,
+                                                2143, 0, 0);
+                LRESULT fin_sel   = SendMessage(g_hwnd_scintilla,
+                                                2144, 0, 0);
+                if (fin_sel > debut_sel) {
+                    formatter_appliquer(g_table_styles,
+                                        (size_t)debut_sel,
+                                        (size_t)(fin_sel - debut_sel),
+                                        STYLE_ITALIQUE);
+                }
+            }
+            break;
+
+        case ID_TB_SOULIGNE:
+            if (g_table_styles) {
+                LRESULT debut_sel = SendMessage(g_hwnd_scintilla,
+                                                2143, 0, 0);
+                LRESULT fin_sel   = SendMessage(g_hwnd_scintilla,
+                                                2144, 0, 0);
+                if (fin_sel > debut_sel) {
+                    formatter_appliquer(g_table_styles,
+                                        (size_t)debut_sel,
+                                        (size_t)(fin_sel - debut_sel),
+                                        STYLE_SOULIGNE);
+                }
+            }
+            break;
+
+        case ID_TB_TITRE1:
+            if (g_table_styles) {
+                LRESULT debut_sel = SendMessage(g_hwnd_scintilla,
+                                                2143, 0, 0);
+                LRESULT fin_sel   = SendMessage(g_hwnd_scintilla,
+                                                2144, 0, 0);
+                if (fin_sel > debut_sel) {
+                    formatter_appliquer(g_table_styles,
+                                        (size_t)debut_sel,
+                                        (size_t)(fin_sel - debut_sel),
+                                        STYLE_TITRE_1);
+                }
+            }
+            break;
+
+        case ID_TB_TITRE2:
+            if (g_table_styles) {
+                LRESULT debut_sel = SendMessage(g_hwnd_scintilla,
+                                                2143, 0, 0);
+                LRESULT fin_sel   = SendMessage(g_hwnd_scintilla,
+                                                2144, 0, 0);
+                if (fin_sel > debut_sel) {
+                    formatter_appliquer(g_table_styles,
+                                        (size_t)debut_sel,
+                                        (size_t)(fin_sel - debut_sel),
+                                        STYLE_TITRE_2);
+                }
+            }
+            break;
+
+        case ID_TB_TITRE3:
+            if (g_table_styles) {
+                LRESULT debut_sel = SendMessage(g_hwnd_scintilla,
+                                                2143, 0, 0);
+                LRESULT fin_sel   = SendMessage(g_hwnd_scintilla,
+                                                2144, 0, 0);
+                if (fin_sel > debut_sel) {
+                    formatter_appliquer(g_table_styles,
+                                        (size_t)debut_sel,
+                                        (size_t)(fin_sel - debut_sel),
+                                        STYLE_TITRE_3);
+                }
+            }
+            break;
+
+        /* Les autres commandes seront branchées dans les étapes suivantes */
         default:
             break;
     }
@@ -215,6 +316,12 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
     switch (msg) {
 
         case WM_CREATE:
+            /* Création de la table des styles */
+            g_table_styles = formatter_creer();
+
+            /* Création de la barre d'outils */
+            g_hwnd_toolbar = toolbar_creer(hwnd);
+
             /* Création du contrôle Scintilla */
             g_hwnd_scintilla = scintilla_creer(hwnd);
             if (!g_hwnd_scintilla) {
@@ -278,15 +385,25 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
             return 0;
 
         case WM_SIZE: {
-            /* Redimensionner Scintilla pour occuper tout l'espace
-             * (moins le panneau de règles à droite) */
             int largeur_totale = LOWORD(lParam);
-            int hauteur        = HIWORD(lParam);
-            int largeur_sci    = largeur_totale - LARGEUR_PANNEAU_REGLES;
+            int hauteur_totale = HIWORD(lParam);
+
+            /* Redimensionner la toolbar (elle se redimensionne seule
+             * en largeur via TB_AUTOSIZE, on envoie juste WM_SIZE) */
+            int hauteur_tb = 0;
+            if (g_hwnd_toolbar) {
+                SendMessage(g_hwnd_toolbar, WM_SIZE, wParam, lParam);
+                hauteur_tb = toolbar_get_hauteur(g_hwnd_toolbar);
+            }
+
+            /* Scintilla occupe le reste sous la toolbar */
+            int largeur_sci = largeur_totale - LARGEUR_PANNEAU_REGLES;
             if (largeur_sci < 100) largeur_sci = 100;
+            int hauteur_sci = hauteur_totale - hauteur_tb;
+            if (hauteur_sci < 0) hauteur_sci = 0;
 
             scintilla_redimensionner(g_hwnd_scintilla,
-                0, 0, largeur_sci, hauteur);
+                0, hauteur_tb, largeur_sci, hauteur_sci);
             return 0;
         }
 
@@ -350,6 +467,10 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
             KillTimer(hwnd, TIMER_REGLES_ID);
             nlp_shutdown();
             spell_shutdown();
+            if (g_table_styles) {
+                formatter_detruire(g_table_styles);
+                g_table_styles = NULL;
+            }
             PostQuitMessage(0);
             return 0;
 
