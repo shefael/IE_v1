@@ -49,7 +49,9 @@ set(LLAMA_LIBS
 
 set(HUNSPELL_INCLUDE_DIR "C:/msys64/mingw64/include/hunspell")
 set(HUNSPELL_LIB         "C:/msys64/mingw64/lib/libhunspell-1.7.a")
-
+# PCRE2 — bibliothèque système MinGW
+set(PCRE2_INCLUDE_DIR "/mingw64/include")
+set(PCRE2_LIB "C:/msys64/mingw64/lib/libpcre2-8.a")
 # ===================================================================
 # = VÉRIFICATION CRUCIALE : Hunspell =
 # = => S'assurer que libhunspell-1.7.a est bien 64 bits
@@ -67,6 +69,7 @@ set(PROJECT_SOURCES
     src/editor/undo_redo.c
     src/editor/exporter.c
     src/editor/formatter.c
+    src/editor/search_replace.c
     src/ui/main_window.c
     src/ui/scintilla_wrapper.c
     src/llm/llm_interface.c
@@ -170,6 +173,7 @@ set_target_properties(scintilla PROPERTIES
 
 add_executable(IntelliEditor ${PROJECT_SOURCES})
 
+target_compile_definitions(IntelliEditor PRIVATE PCRE2_STATIC)
 target_include_directories(IntelliEditor PRIVATE
     include
     src
@@ -185,6 +189,7 @@ target_include_directories(IntelliEditor PRIVATE
     external/llama.cpp/include
     external/llama.cpp/common
     external/llama.cpp/ggml/include
+    ${PCRE2_INCLUDE_DIR}
 )
 
 
@@ -211,6 +216,7 @@ target_link_libraries(IntelliEditor PRIVATE
     OpenMP::OpenMP_C
     OpenMP::OpenMP_CXX
     ${HUNSPELL_LIB}
+    ${PCRE2_LIB}
     ws2_32
     user32
     gdi32
