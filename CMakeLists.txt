@@ -73,6 +73,7 @@ set(PROJECT_SOURCES
     src/ui/main_window.c
     src/ui/scintilla_wrapper.c
     src/ui/toolbar.c 
+    src/ui/statusbar.c
     src/llm/llm_interface.c
     src/llm/llm_thread.c
     src/nlp/hunspell_wrap.c

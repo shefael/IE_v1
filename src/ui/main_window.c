@@ -10,6 +10,7 @@
 #include "nlp/hunspell_wrap.h"
 #include "nlp/nlp_engine.h"
 #include "ui/toolbar.h"
+#include "ui/statusbar.h"
 #include "editor/formatter.h"
 
 #include <stdio.h>
@@ -47,7 +48,7 @@
 HWND g_hwnd_principale = NULL;
 HWND g_hwnd_scintilla  = NULL;
 HWND g_hwnd_toolbar    = NULL;
-
+HWND g_hwnd_statusbar  = NULL;
 /* Table des styles globale (partagée entre formatter et exporter) */
 static TableStyles *g_table_styles = NULL;
 
@@ -322,6 +323,9 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
             /* Création de la barre d'outils */
             g_hwnd_toolbar = toolbar_creer(hwnd);
 
+            /* Création de la barre d'état */
+            g_hwnd_statusbar = statusbar_creer(hwnd);
+
             /* Création du contrôle Scintilla */
             g_hwnd_scintilla = scintilla_creer(hwnd);
             if (!g_hwnd_scintilla) {
@@ -388,18 +392,24 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
             int largeur_totale = LOWORD(lParam);
             int hauteur_totale = HIWORD(lParam);
 
-            /* Redimensionner la toolbar (elle se redimensionne seule
-             * en largeur via TB_AUTOSIZE, on envoie juste WM_SIZE) */
+            /* Toolbar : se redimensionne seule en largeur */
             int hauteur_tb = 0;
             if (g_hwnd_toolbar) {
                 SendMessage(g_hwnd_toolbar, WM_SIZE, wParam, lParam);
                 hauteur_tb = toolbar_get_hauteur(g_hwnd_toolbar);
             }
 
-            /* Scintilla occupe le reste sous la toolbar */
+            /* Statusbar : se redimensionne seule en largeur */
+            int hauteur_sb = 0;
+            if (g_hwnd_statusbar) {
+                SendMessage(g_hwnd_statusbar, WM_SIZE, wParam, lParam);
+                hauteur_sb = statusbar_get_hauteur(g_hwnd_statusbar);
+            }
+
+            /* Scintilla occupe l'espace entre toolbar et statusbar */
             int largeur_sci = largeur_totale - LARGEUR_PANNEAU_REGLES;
             if (largeur_sci < 100) largeur_sci = 100;
-            int hauteur_sci = hauteur_totale - hauteur_tb;
+            int hauteur_sci = hauteur_totale - hauteur_tb - hauteur_sb;
             if (hauteur_sci < 0) hauteur_sci = 0;
 
             scintilla_redimensionner(g_hwnd_scintilla,
@@ -415,13 +425,21 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
         
         
         case WM_TIMER: {
-            if (wParam == TIMER_ORTHO_ID) {
+            if (wParam == TIMER_STATUT_ID) {
                 /*
-                 * Timer orthographe (500 ms) :
-                 * Récupère le texte de Scintilla, lance la vérification
-                 * Hunspell, efface les anciens soulignements et applique
-                 * les nouveaux.
+                 * Timer statut (300 ms) :
+                 * Met à jour le compteur de mots et la position curseur.
                  */
+                if (g_hwnd_statusbar && g_hwnd_scintilla) {
+                    size_t nb_mots  = scintilla_compter_mots(g_hwnd_scintilla);
+                    size_t nb_chars = scintilla_get_longueur(g_hwnd_scintilla);
+                    int    ligne    = scintilla_get_ligne_courante(g_hwnd_scintilla);
+                    int    colonne  = scintilla_get_colonne_courante(g_hwnd_scintilla);
+
+                    statusbar_maj_mots(g_hwnd_statusbar, nb_mots, nb_chars);
+                    statusbar_maj_position(g_hwnd_statusbar, ligne, colonne);
+                }
+            } else if (wParam == TIMER_ORTHO_ID) {
                 char *texte = scintilla_get_texte(g_hwnd_scintilla);
                 if (texte) {
                     int nb_erreurs = 0;
@@ -441,10 +459,9 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
                     free(texte);
                 }
             }
-            /* TIMER_REGLES_ID et TIMER_STATUT_ID seront branchés
-             * dans les étapes suivantes de la Phase 2. */
+            /* TIMER_REGLES_ID sera branché à l'étape du panneau de règles */
             return 0;
-        }     
+        }
              
 
         case WM_NOTIFY: {
