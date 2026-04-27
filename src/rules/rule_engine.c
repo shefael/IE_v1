@@ -16,7 +16,7 @@ const char* rulestatus_to_string(RuleStatus st) {
         case STATUS_OK:        return "Conforme";
         case STATUS_WARNING:   return "Avertissement";
         case STATUS_VIOLATION: return "Non conforme";
-        case STATUS_PENDING:   return "En cours";
+        case RULE_STATUS_PENDING:   return "En cours";
         default:               return "Inconnu";
     }
 }

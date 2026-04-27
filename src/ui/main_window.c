@@ -11,6 +11,7 @@
 #include "nlp/nlp_engine.h"
 #include "ui/toolbar.h"
 #include "ui/statusbar.h"
+#include "ui/rules_panel.h"
 #include "editor/formatter.h"
 
 #include <stdio.h>
@@ -45,10 +46,11 @@
 /* -----------------------------------------------------------------------
  * Variables globales de la fenêtre
  * ----------------------------------------------------------------------- */
-HWND g_hwnd_principale = NULL;
-HWND g_hwnd_scintilla  = NULL;
-HWND g_hwnd_toolbar    = NULL;
-HWND g_hwnd_statusbar  = NULL;
+HWND g_hwnd_principale  = NULL;
+HWND g_hwnd_scintilla   = NULL;
+HWND g_hwnd_toolbar     = NULL;
+HWND g_hwnd_statusbar   = NULL;
+HWND g_hwnd_rules_panel = NULL;
 /* Table des styles globale (partagée entre formatter et exporter) */
 static TableStyles *g_table_styles = NULL;
 
@@ -326,6 +328,11 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
             /* Création de la barre d'état */
             g_hwnd_statusbar = statusbar_creer(hwnd);
 
+            /* Création du panneau de règles (position provisoire,
+             * sera ajustée par le premier WM_SIZE) */
+            g_hwnd_rules_panel = rules_panel_creer(hwnd,
+                0, 0, LARGEUR_PANNEAU_REGLES, 400);
+
             /* Création du contrôle Scintilla */
             g_hwnd_scintilla = scintilla_creer(hwnd);
             if (!g_hwnd_scintilla) {
@@ -414,6 +421,13 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
 
             scintilla_redimensionner(g_hwnd_scintilla,
                 0, hauteur_tb, largeur_sci, hauteur_sci);
+
+            /* Panneau de règles : à droite de Scintilla */
+            if (g_hwnd_rules_panel) {
+                rules_panel_redimensionner(g_hwnd_rules_panel,
+                    largeur_sci, hauteur_tb,
+                    LARGEUR_PANNEAU_REGLES, hauteur_sci);
+            }
             return 0;
         }
 

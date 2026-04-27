@@ -9,7 +9,7 @@
 
 /* Sévérité d'une règle */
 typedef enum {
-    SEVERITY_ERROR,    /* Erreur bloquante        */
+    RULE_SEVERITY_ERROR,    /* Erreur bloquante        */
     SEVERITY_WARNING,  /* Avertissement           */
     SEVERITY_INFO      /* Information             */
 } RuleSeverity;
@@ -19,7 +19,7 @@ typedef enum {
     STATUS_OK,         /* Règle respectée         */
     STATUS_WARNING,    /* Partiellement respectée */
     STATUS_VIOLATION,  /* Règle violée            */
-    STATUS_PENDING     /* Vérification en cours   */
+    RULE_STATUS_PENDING     /* Vérification en cours   */
 } RuleStatus;
 
 /* Type de vérificateur */

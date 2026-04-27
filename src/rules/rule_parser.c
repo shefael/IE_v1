@@ -22,7 +22,7 @@ static void copier_chaine_json(const cJSON* item, char* dst, size_t max) {
 /* Convertit la chaîne "severity" en RuleSeverity */
 static RuleSeverity parser_severite(const char* s) {
     if (!s) return SEVERITY_WARNING;
-    if (strcmp(s, "error")   == 0) return SEVERITY_ERROR;
+    if (strcmp(s, "error")   == 0) return RULE_SEVERITY_ERROR;
     if (strcmp(s, "warning") == 0) return SEVERITY_WARNING;
     if (strcmp(s, "info")    == 0) return SEVERITY_INFO;
     return SEVERITY_WARNING;
