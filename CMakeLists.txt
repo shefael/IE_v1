@@ -85,6 +85,7 @@ set(PROJECT_SOURCES
     src/rules/rule_parser.c
     src/rules/checkers/section_checker.c
     src/rules/checkers/regex_checker.c
+    src/rules/checkers/count_checker.c
     src/utils/encoding.c
     src/utils/config.c
 )
