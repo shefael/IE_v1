@@ -74,7 +74,8 @@ set(PROJECT_SOURCES
     src/ui/scintilla_wrapper.c
     src/ui/toolbar.c 
     src/ui/statusbar.c
-    src/ui/rules_panel.c 
+    src/ui/rules_panel.c
+    src/ui/dialogs.c
     src/llm/llm_interface.c
     src/llm/llm_thread.c
     src/nlp/hunspell_wrap.c
@@ -82,6 +83,8 @@ set(PROJECT_SOURCES
     src/nlp/nlp_engine.c
     src/rules/rule_engine.c
     src/rules/rule_parser.c
+    src/rules/checkers/section_checker.c
+    src/rules/checkers/regex_checker.c
     src/utils/encoding.c
     src/utils/config.c
 )

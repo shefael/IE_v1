@@ -12,7 +12,11 @@
 #include "ui/toolbar.h"
 #include "ui/statusbar.h"
 #include "ui/rules_panel.h"
+#include "ui/dialogs.h"
 #include "editor/formatter.h"
+#include "editor/exporter.h"
+#include "rules/rule_parser.h"
+#include "rules/rule_engine.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,9 +28,14 @@
 #ifndef SCI_CLEARALL
 #define SCI_CLEARALL   2004
 #endif
+#ifndef SCI_SETTEXT
+#define SCI_SETTEXT    2181
+#endif
 #ifndef SCI_UNDO
 #define SCI_UNDO       2176
 #endif
+
+
 #ifndef SCI_REDO
 #define SCI_REDO       2011
 #endif
@@ -53,6 +62,9 @@ HWND g_hwnd_statusbar   = NULL;
 HWND g_hwnd_rules_panel = NULL;
 /* Table des styles globale (partagée entre formatter et exporter) */
 static TableStyles *g_table_styles = NULL;
+
+/* Ensemble de règles chargé */
+static RuleSet *g_ruleset = NULL;
 
 /* Largeur réservée pour le panneau de règles (droite) */
 #define LARGEUR_PANNEAU_REGLES 250
@@ -167,10 +179,165 @@ static void traiter_commande(HWND hwnd, WORD id_commande) {
     switch (id_commande) {
 
         case ID_FICHIER_NOUVEAU:
-            /* Effacer le contenu de Scintilla */
-            SendMessage(g_hwnd_scintilla, SCI_CLEARALL, 0, 0);
-            ui_set_titre(L"Sans titre");
+            if (dialog_confirmer(hwnd,
+                    "Créer un nouveau document ?\n"
+                    "Le contenu non enregistré sera perdu.")) {
+                SendMessage(g_hwnd_scintilla, SCI_CLEARALL, 0, 0);
+                if (g_table_styles) formatter_vider(g_table_styles);
+                ui_set_titre(L"Sans titre");
+            }
             break;
+
+        case ID_FICHIER_OUVRIR: {
+            char *chemin = dialog_ouvrir_fichier(hwnd);
+            if (chemin) {
+                char *contenu = importer_txt(chemin);
+                if (contenu) {
+                    /* Charger le texte dans Scintilla */
+                    SendMessage(g_hwnd_scintilla, SCI_CLEARALL, 0, 0);
+                    SendMessage(g_hwnd_scintilla, SCI_SETTEXT,  /* SCI_SETTEXT */
+                                0, (LPARAM)contenu);
+                    if (g_table_styles) formatter_vider(g_table_styles);
+                    /* Mettre à jour le titre */
+                    wchar_t chemin_w[MAX_PATH];
+                    MultiByteToWideChar(CP_UTF8, 0, chemin, -1,
+                                        chemin_w, MAX_PATH);
+                    /* Extraire uniquement le nom du fichier */
+                    wchar_t *nom = wcsrchr(chemin_w, L'\\');
+                    ui_set_titre(nom ? nom + 1 : chemin_w);
+                    free(contenu);
+                } else {
+                    dialog_erreur(hwnd,
+                        "Impossible d'ouvrir le fichier.\n"
+                        "Vérifiez que le fichier existe et est lisible.");
+                }
+                free(chemin);
+            }
+            break;
+        }
+
+        case ID_FICHIER_ENREGISTRER:
+        case ID_FICHIER_ENREG_SOUS: {
+            char *chemin = dialog_enregistrer_fichier(hwnd);
+            if (chemin) {
+                char *texte = scintilla_get_texte(g_hwnd_scintilla);
+                if (texte) {
+                    int ret = EXPORT_OK;
+                    /* Déterminer le format selon l'extension.
+                     * On cherche le dernier '.' dans le chemin. */
+                    const char *ext = strrchr(chemin, '.');
+                    if (ext && _stricmp(ext, ".rtf") == 0) {
+                        ret = exporter_rtf(chemin, texte, g_table_styles);
+                    } else if (ext && _stricmp(ext, ".ie") == 0) {
+                        ret = exporter_ie(chemin, texte, g_table_styles);
+                    } else {
+                        ret = exporter_txt(chemin, texte);
+                    }
+
+                    if (ret != EXPORT_OK) {
+                        dialog_erreur(hwnd,
+                            "Erreur lors de l'enregistrement du fichier.\n"
+                            "Vérifiez les droits d'accès et l'espace disque.");
+                    } else {
+                        wchar_t chemin_w[MAX_PATH];
+                        MultiByteToWideChar(CP_UTF8, 0, chemin, -1,
+                                            chemin_w, MAX_PATH);
+                        wchar_t *nom = wcsrchr(chemin_w, L'\\');
+                        ui_set_titre(nom ? nom + 1 : chemin_w);
+                    }
+                    free(texte);
+                }
+                free(chemin);
+            }
+            break;
+        }
+
+        case ID_OUTILS_REGLES: {
+            char *chemin = dialog_ouvrir_regles(hwnd);
+            if (chemin) {
+                /* Libérer l'ancien ruleset */
+                if (g_ruleset) {
+                    ruleset_free(g_ruleset);
+                    g_ruleset = NULL;
+                }
+
+                g_ruleset = rules_parse_file(chemin);
+                if (!g_ruleset) {
+                    dialog_erreur(hwnd,
+                        "Impossible de charger le fichier de règles.\n"
+                        "Vérifiez que le fichier JSON est valide.");
+                } else {
+                    /* Peupler le panneau de règles */
+                    int nb = (int)g_ruleset->nb_regles;
+                    ElementRegle *elements = (ElementRegle *)calloc((size_t)nb, sizeof(ElementRegle));
+                    
+                    if (elements) {
+                        for (int i = 0; i < nb; i++) {
+                            // CORRECTION : On ne teste plus l'adresse du tableau directement
+                            // On copie simplement le contenu de manière sécurisée
+                            strncpy(elements[i].id, 
+                                    g_ruleset->regles[i].id, 
+                                    sizeof(elements[i].id) - 1);
+                            elements[i].id[sizeof(elements[i].id) - 1] = '\0';
+
+                            strncpy(elements[i].description, 
+                                    g_ruleset->regles[i].description, 
+                                    sizeof(elements[i].description) - 1);
+                            elements[i].description[sizeof(elements[i].description) - 1] = '\0';
+
+                            // CORRECTION : Utilisation du nouveau nom de constante
+                            elements[i].statut = RULE_STATUS_PENDING;
+                        }
+                        
+                        rules_panel_peupler(g_hwnd_rules_panel, elements, nb);
+                        free(elements);
+                    }
+
+                    char msg[512];
+                    snprintf(msg, sizeof(msg),
+                             "%d règle(s) chargée(s) depuis :\n%s",
+                             nb, chemin);
+                    dialog_info(hwnd, msg);
+                }
+                free(chemin);
+            }
+            break;
+        }
+
+        case ID_EDITION_RECHERCHER:
+        case ID_EDITION_REMPLACER: {
+            ContexteRecherche *ctx = NULL;
+            char remplacement[512] = {0};
+
+            if (dialog_rechercher_remplacer(hwnd, &ctx,
+                                             remplacement,
+                                             sizeof(remplacement))) {
+                if (ctx) {
+                    char *texte = scintilla_get_texte(g_hwnd_scintilla);
+                    if (texte) {
+                        int nb = 0;
+                        char *nouveau = recherche_remplacer_tout(
+                            ctx, texte, remplacement, &nb);
+                        if (nouveau && nb > 0) {
+                            SendMessage(g_hwnd_scintilla, SCI_SETTEXT,
+                                        0, (LPARAM)nouveau);
+                            char msg[128];
+                            snprintf(msg, sizeof(msg),
+                                     "%d remplacement(s) effectué(s).", nb);
+                            dialog_info(hwnd, msg);
+                            free(nouveau);
+                        } else if (nb == 0) {
+                            dialog_info(hwnd,
+                                "Aucune occurrence trouvée.");
+                            free(nouveau);
+                        }
+                        free(texte);
+                    }
+                    recherche_detruire(ctx);
+                }
+            }
+            break;
+        }
 
         case ID_FICHIER_QUITTER:
             PostMessage(hwnd, WM_CLOSE, 0, 0);
@@ -501,6 +668,10 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
             if (g_table_styles) {
                 formatter_detruire(g_table_styles);
                 g_table_styles = NULL;
+            }
+            if (g_ruleset) {
+                ruleset_free(g_ruleset);
+                g_ruleset = NULL;
             }
             PostQuitMessage(0);
             return 0;
