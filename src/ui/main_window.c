@@ -17,6 +17,7 @@
 #include "editor/exporter.h"
 #include "rules/rule_parser.h"
 #include "rules/rule_engine.h"
+#include "rules/rule_report.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -639,10 +640,49 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg,
                     nlp_liberer_erreurs(erreurs, nb_erreurs);
                     free(texte);
                 }
+            
+            } else if (wParam == TIMER_REGLES_ID) {
+                /*
+                 * Timer règles (2000 ms) :
+                 * Génère le rapport de conformité si un ruleset est chargé.
+                 * Le debounce est naturellement assuré par le timer.
+                 */
+                if (g_ruleset && g_hwnd_rules_panel && g_hwnd_scintilla) {
+                    char *texte = scintilla_get_texte(g_hwnd_scintilla);
+                    if (texte) {
+                        RuleReport *rapport = rule_report_generer(
+                            g_ruleset, texte);
+                        free(texte);
+
+                        if (rapport) {
+                            /* Mettre à jour le panneau règle par règle */
+                            for (size_t i = 0; i < rapport->nb; i++) {
+                                rules_panel_maj_statut(
+                                    g_hwnd_rules_panel,
+                                    rapport->items[i].rule_id,
+                                    rapport->items[i].statut,
+                                    rapport->items[i].message);
+                            }
+
+                            /* Mettre à jour la barre d'état */
+                            if (g_hwnd_statusbar) {
+                                char msg_llm[64];
+                                snprintf(msg_llm, sizeof(msg_llm),
+                                         "Règles : %d OK  %d warn  %d viol",
+                                         rapport->nb_ok,
+                                         rapport->nb_warn,
+                                         rapport->nb_viol);
+                                statusbar_maj_llm(g_hwnd_statusbar, msg_llm);
+                            }
+
+                            rule_report_free(rapport);
+                        }
+                    }
+                }
             }
-            /* TIMER_REGLES_ID sera branché à l'étape du panneau de règles */
             return 0;
         }
+
              
 
         case WM_NOTIFY: {

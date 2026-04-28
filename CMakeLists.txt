@@ -83,6 +83,7 @@ set(PROJECT_SOURCES
     src/nlp/nlp_engine.c
     src/rules/rule_engine.c
     src/rules/rule_parser.c
+    src/rules/rule_report.c
     src/rules/checkers/section_checker.c
     src/rules/checkers/regex_checker.c
     src/rules/checkers/count_checker.c
