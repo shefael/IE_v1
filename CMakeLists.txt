@@ -78,6 +78,8 @@ set(PROJECT_SOURCES
     src/ui/dialogs.c
     src/llm/llm_interface.c
     src/llm/llm_thread.c
+    src/llm/prompts.c
+    src/llm/json_parser.c
     src/nlp/hunspell_wrap.c
     src/nlp/tokenizer.c
     src/nlp/nlp_engine.c
@@ -89,6 +91,7 @@ set(PROJECT_SOURCES
     src/rules/checkers/count_checker.c
     src/utils/encoding.c
     src/utils/config.c
+    src/utils/memory.c
 )
 
 
